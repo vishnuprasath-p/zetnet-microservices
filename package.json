@@ -1,0 +1,34 @@
+{
+  "name": "zetnet-microservices",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Zetnet microservices architecture",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=gateway\" \"npm run dev --workspace=services/auth\" \"npm run dev --workspace=services/computer\" \"npm run dev --workspace=services/travel\" \"npm run dev --workspace=services/solutions\" \"npm run dev --workspace=services/enquiry\" \"npm run dev --workspace=services/notification\"",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "test:watch": "npm run test:watch --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write '**/*.{ts,js,json,md}'",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v"
+  },
+  "workspaces": [
+    "shared",
+    "gateway",
+    "services/*"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

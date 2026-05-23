@@ -1,0 +1,172 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: zetnet-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - GATEWAY_PORT=3000
+      - AUTH_SERVICE_URL=http://auth:3001
+      - COMPUTER_SERVICE_URL=http://computer:3002
+      - TRAVEL_SERVICE_URL=http://travel:3003
+      - SOLUTIONS_SERVICE_URL=http://solutions:3004
+      - ENQUIRY_SERVICE_URL=http://enquiry:3005
+      - NOTIFICATION_SERVICE_URL=http://notification:3006
+    depends_on:
+      - auth
+      - computer
+      - travel
+      - solutions
+      - enquiry
+      - notification
+    networks:
+      - zetnet-network
+    restart: unless-stopped
+
+  auth:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile
+    container_name: zetnet-auth
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - AUTH_SERVICE_PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1h}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+    networks:
+      - zetnet-network
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+  computer:
+    build:
+      context: ./services/computer
+      dockerfile: Dockerfile
+    container_name: zetnet-computer
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - NODE_ENV=development
+      - COMPUTER_SERVICE_PORT=3002
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    networks:
+      - zetnet-network
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+  travel:
+    build:
+      context: ./services/travel
+      dockerfile: Dockerfile
+    container_name: zetnet-travel
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - NODE_ENV=development
+      - TRAVEL_SERVICE_PORT=3003
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    networks:
+      - zetnet-network
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+  solutions:
+    build:
+      context: ./services/solutions
+      dockerfile: Dockerfile
+    container_name: zetnet-solutions
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - NODE_ENV=development
+      - SOLUTIONS_SERVICE_PORT=3004
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    networks:
+      - zetnet-network
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+  enquiry:
+    build:
+      context: ./services/enquiry
+      dockerfile: Dockerfile
+    container_name: zetnet-enquiry
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+      - NODE_ENV=development
+      - ENQUIRY_SERVICE_PORT=3005
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    networks:
+      - zetnet-network
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+  notification:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: zetnet-notification
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_PORT=3006
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_FROM=${TWILIO_WHATSAPP_FROM}
+      - ADMIN_WHATSAPP_NUMBER=${ADMIN_WHATSAPP_NUMBER}
+    networks:
+      - zetnet-network
+    depends_on:
+      - supabase
+    restart: unless-stopped
+
+  supabase:
+    image: supabase/supabase:latest
+    container_name: zetnet-supabase
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - SUPABASE_URL_KEY=${SUPABASE_ANON_KEY}
+    networks:
+      - zetnet-network
+    restart: unless-stopped
+
+networks:
+  zetnet-network:
+    driver: bridge
