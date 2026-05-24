@@ -1,0 +1,92 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["Build & Push Docker Images"]
+    types:
+      - completed
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG }}
+    
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace zetnet --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Create/Update ConfigMap
+      run: |
+        kubectl apply -f infra/kubernetes/configmap.yaml
+    
+    - name: Create/Update Secrets
+      run: |
+        kubectl delete secret zetnet-secrets -n zetnet --ignore-not-found
+        kubectl create secret generic zetnet-secrets -n zetnet \
+          --from-literal=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+          --from-literal=SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+          --from-literal=JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
+          --from-literal=TWILIO_ACCOUNT_SID="${{ secrets.TWILIO_ACCOUNT_SID }}" \
+          --from-literal=TWILIO_AUTH_TOKEN="${{ secrets.TWILIO_AUTH_TOKEN }}" \
+          --from-literal=TWILIO_WHATSAPP_FROM="${{ secrets.TWILIO_WHATSAPP_FROM }}" \
+          --from-literal=ADMIN_WHATSAPP_NUMBER="${{ secrets.ADMIN_WHATSAPP_NUMBER }}"
+    
+    - name: Update image tags in manifests
+      run: |
+        sed -i "s|YOUR_REGISTRY|${{ secrets.DOCKER_USERNAME }}|g" infra/kubernetes/*.yaml
+        sed -i "s|:latest|:${{ github.sha }}|g" infra/kubernetes/*.yaml
+    
+    - name: Deploy Auth Service
+      run: kubectl apply -f infra/kubernetes/auth.yaml
+    
+    - name: Deploy Computer Service
+      run: kubectl apply -f infra/kubernetes/computer.yaml
+    
+    - name: Deploy Other Services
+      run: kubectl apply -f infra/kubernetes/services.yaml
+    
+    - name: Deploy Gateway
+      run: kubectl apply -f infra/kubernetes/gateway.yaml
+    
+    - name: Wait for deployments
+      run: |
+        kubectl rollout status deployment/auth -n zetnet --timeout=5m
+        kubectl rollout status deployment/computer -n zetnet --timeout=5m
+        kubectl rollout status deployment/travel -n zetnet --timeout=5m
+        kubectl rollout status deployment/solutions -n zetnet --timeout=5m
+        kubectl rollout status deployment/enquiry -n zetnet --timeout=5m
+        kubectl rollout status deployment/notification -n zetnet --timeout=5m
+        kubectl rollout status deployment/gateway -n zetnet --timeout=5m
+    
+    - name: Get service status
+      run: |
+        echo "=== Pods Status ==="
+        kubectl get pods -n zetnet
+        echo ""
+        echo "=== Services Status ==="
+        kubectl get services -n zetnet
+        echo ""
+        echo "=== Gateway External IP ==="
+        kubectl get service gateway-service -n zetnet

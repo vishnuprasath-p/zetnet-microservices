@@ -1,0 +1,76 @@
+name: Deploy to AWS EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy-eks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+    
+    - name: Create namespace
+      run: |
+        kubectl create namespace zetnet --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Deploy ConfigMap
+      run: kubectl apply -f infra/kubernetes/configmap.yaml
+    
+    - name: Create Secrets
+      run: |
+        kubectl delete secret zetnet-secrets -n zetnet --ignore-not-found
+        kubectl create secret generic zetnet-secrets -n zetnet \
+          --from-literal=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+          --from-literal=SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+          --from-literal=JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
+          --from-literal=TWILIO_ACCOUNT_SID="${{ secrets.TWILIO_ACCOUNT_SID }}" \
+          --from-literal=TWILIO_AUTH_TOKEN="${{ secrets.TWILIO_AUTH_TOKEN }}" \
+          --from-literal=TWILIO_WHATSAPP_FROM="${{ secrets.TWILIO_WHATSAPP_FROM }}" \
+          --from-literal=ADMIN_WHATSAPP_NUMBER="${{ secrets.ADMIN_WHATSAPP_NUMBER }}"
+    
+    - name: Update manifests with ECR registry
+      run: |
+        ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+        sed -i "s|YOUR_REGISTRY|$ECR_REGISTRY|g" infra/kubernetes/*.yaml
+    
+    - name: Deploy all services
+      run: |
+        kubectl apply -f infra/kubernetes/auth.yaml
+        kubectl apply -f infra/kubernetes/computer.yaml
+        kubectl apply -f infra/kubernetes/services.yaml
+        kubectl apply -f infra/kubernetes/gateway.yaml
+    
+    - name: Wait for rollout
+      run: |
+        kubectl rollout status deployment/gateway -n zetnet --timeout=10m
+    
+    - name: Get LoadBalancer URL
+      run: |
+        kubectl get service gateway-service -n zetnet
