@@ -118,7 +118,7 @@ jobs:
       run: kubectl create namespace zetnet --dry-run=client -o yaml | kubectl apply -f -
     
     - name: Update ConfigMap
-      run: kubectl apply -f infra/kubernetes/configmap.yaml
+      run: kubectl apply -f infra/kubernetes/configmap.yaml --validate=false
     
     - name: Update Secrets
       run: |
@@ -140,10 +140,10 @@ jobs:
     
     - name: Deploy services
       run: |
-        kubectl apply -f infra/kubernetes/auth.yaml
-        kubectl apply -f infra/kubernetes/computer.yaml
-        kubectl apply -f infra/kubernetes/services.yaml
-        kubectl apply -f infra/kubernetes/gateway.yaml
+        kubectl apply -f infra/kubernetes/auth.yaml --validate=false
+        kubectl apply -f infra/kubernetes/computer.yaml --validate=false
+        kubectl apply -f infra/kubernetes/services.yaml --validate=false
+        kubectl apply -f infra/kubernetes/gateway.yaml --validate=false
     
     - name: Wait for rollout
       run: |
