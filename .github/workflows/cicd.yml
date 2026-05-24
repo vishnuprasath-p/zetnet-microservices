@@ -112,13 +112,13 @@ jobs:
         chmod 600 $HOME/.kube/config
     
     - name: Verify cluster connection
-      run: kubectl cluster-info
+      run: kubectl cluster-info --insecure-skip-tls-verify
     
     - name: Create namespace
-      run: kubectl create namespace zetnet --dry-run=client -o yaml | kubectl apply -f -
+      run: kubectl create namespace zetnet --dry-run=client -o yaml | kubectl apply -f - --insecure-skip-tls-verify
     
     - name: Update ConfigMap
-      run: kubectl apply -f infra/kubernetes/configmap.yaml --validate=false
+      run: kubectl apply -f infra/kubernetes/configmap.yaml --validate=false --insecure-skip-tls-verify
     
     - name: Update Secrets
       run: |
@@ -140,32 +140,32 @@ jobs:
     
     - name: Deploy services
       run: |
-        kubectl apply -f infra/kubernetes/auth.yaml --validate=false
-        kubectl apply -f infra/kubernetes/computer.yaml --validate=false
-        kubectl apply -f infra/kubernetes/services.yaml --validate=false
-        kubectl apply -f infra/kubernetes/gateway.yaml --validate=false
+        kubectl apply -f infra/kubernetes/auth.yaml --validate=false --insecure-skip-tls-verify
+        kubectl apply -f infra/kubernetes/computer.yaml --validate=false --insecure-skip-tls-verify
+        kubectl apply -f infra/kubernetes/services.yaml --validate=false --insecure-skip-tls-verify
+        kubectl apply -f infra/kubernetes/gateway.yaml --validate=false --insecure-skip-tls-verify
     
     - name: Wait for rollout
       run: |
-        kubectl rollout status deployment/auth -n zetnet --timeout=5m
-        kubectl rollout status deployment/computer -n zetnet --timeout=5m
-        kubectl rollout status deployment/travel -n zetnet --timeout=5m
-        kubectl rollout status deployment/solutions -n zetnet --timeout=5m
-        kubectl rollout status deployment/enquiry -n zetnet --timeout=5m
-        kubectl rollout status deployment/notification -n zetnet --timeout=5m
-        kubectl rollout status deployment/gateway -n zetnet --timeout=5m
+        kubectl rollout status deployment/auth -n zetnet --timeout=5m --insecure-skip-tls-verify
+        kubectl rollout status deployment/computer -n zetnet --timeout=5m --insecure-skip-tls-verify
+        kubectl rollout status deployment/travel -n zetnet --timeout=5m --insecure-skip-tls-verify
+        kubectl rollout status deployment/solutions -n zetnet --timeout=5m --insecure-skip-tls-verify
+        kubectl rollout status deployment/enquiry -n zetnet --timeout=5m --insecure-skip-tls-verify
+        kubectl rollout status deployment/notification -n zetnet --timeout=5m --insecure-skip-tls-verify
+        kubectl rollout status deployment/gateway -n zetnet --timeout=5m --insecure-skip-tls-verify
     
     - name: Get deployment status
       run: |
         echo "=== Pods ==="
-        kubectl get pods -n zetnet
+        kubectl get pods -n zetnet --insecure-skip-tls-verify
         echo ""
         echo "=== Services ==="
-        kubectl get services -n zetnet
+        kubectl get services -n zetnet --insecure-skip-tls-verify
     
     - name: Deployment summary
       run: |
         echo "✅ Deployment completed successfully!"
         echo "📦 Image tag: ${{ github.sha }}"
         echo "🔗 Gateway URL:"
-        kubectl get service gateway-service -n zetnet -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+        kubectl get service gateway-service -n zetnet -o jsonpath='{.status.loadBalancer.ingress[0].ip}' --insecure-skip-tls-verify
