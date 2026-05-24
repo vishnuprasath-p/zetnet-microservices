@@ -1,0 +1,100 @@
+name: Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (or "all")'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - gateway
+          - auth
+          - computer
+          - travel
+          - solutions
+          - enquiry
+          - notification
+      image_tag:
+        description: 'Image tag to deploy'
+        required: true
+        default: 'latest'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Configure kubectl
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+    
+    - name: Update image tag
+      run: |
+        sed -i "s|YOUR_REGISTRY|${{ secrets.DOCKER_USERNAME }}|g" infra/kubernetes/*.yaml
+        sed -i "s|:latest|:${{ github.event.inputs.image_tag }}|g" infra/kubernetes/*.yaml
+    
+    - name: Deploy All Services
+      if: github.event.inputs.service == 'all'
+      run: |
+        kubectl apply -f infra/kubernetes/auth.yaml
+        kubectl apply -f infra/kubernetes/computer.yaml
+        kubectl apply -f infra/kubernetes/services.yaml
+        kubectl apply -f infra/kubernetes/gateway.yaml
+    
+    - name: Deploy Gateway
+      if: github.event.inputs.service == 'gateway'
+      run: kubectl apply -f infra/kubernetes/gateway.yaml
+    
+    - name: Deploy Auth
+      if: github.event.inputs.service == 'auth'
+      run: kubectl apply -f infra/kubernetes/auth.yaml
+    
+    - name: Deploy Computer
+      if: github.event.inputs.service == 'computer'
+      run: kubectl apply -f infra/kubernetes/computer.yaml
+    
+    - name: Deploy Travel
+      if: github.event.inputs.service == 'travel'
+      run: kubectl apply -f infra/kubernetes/services.yaml
+    
+    - name: Deploy Solutions
+      if: github.event.inputs.service == 'solutions'
+      run: kubectl apply -f infra/kubernetes/services.yaml
+    
+    - name: Deploy Enquiry
+      if: github.event.inputs.service == 'enquiry'
+      run: kubectl apply -f infra/kubernetes/services.yaml
+    
+    - name: Deploy Notification
+      if: github.event.inputs.service == 'notification'
+      run: kubectl apply -f infra/kubernetes/services.yaml
+    
+    - name: Wait for rollout
+      run: |
+        if [ "${{ github.event.inputs.service }}" == "all" ]; then
+          kubectl rollout status deployment/gateway -n zetnet --timeout=5m
+          kubectl rollout status deployment/auth -n zetnet --timeout=5m
+          kubectl rollout status deployment/computer -n zetnet --timeout=5m
+          kubectl rollout status deployment/travel -n zetnet --timeout=5m
+          kubectl rollout status deployment/solutions -n zetnet --timeout=5m
+          kubectl rollout status deployment/enquiry -n zetnet --timeout=5m
+          kubectl rollout status deployment/notification -n zetnet --timeout=5m
+        else
+          kubectl rollout status deployment/${{ github.event.inputs.service }} -n zetnet --timeout=5m
+        fi
+    
+    - name: Get status
+      run: |
+        kubectl get pods -n zetnet
+        kubectl get services -n zetnet

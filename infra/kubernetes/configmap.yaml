@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zetnet-config
+  namespace: zetnet
+data:
+  NODE_ENV: "production"
+  GATEWAY_PORT: "3000"
+  AUTH_SERVICE_URL: "http://auth-service:3001"
+  COMPUTER_SERVICE_URL: "http://computer-service:3002"
+  TRAVEL_SERVICE_URL: "http://travel-service:3003"
+  SOLUTIONS_SERVICE_URL: "http://solutions-service:3004"
+  ENQUIRY_SERVICE_URL: "http://enquiry-service:3005"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:3006"
+  JWT_EXPIRES_IN: "1h"
+  JWT_REFRESH_EXPIRES_IN: "7d"
